@@ -95,7 +95,8 @@ Scope drift: <list, or "none">
 (Group each by FE / BE / Drupal. Write "none" for an empty level.)
 
 **Before merge**
-<deploy steps, manual checks on the preview site, client-review need — or "nothing extra">
+<only what this PR needs: deploy steps, manual checks on the preview site,
+client review — or "nothing extra">
 ```
 
 Keep the summary under ~400 words; detail lives in the inline comments.
@@ -110,3 +111,5 @@ good result. Leave out:
 - Process reminders: secrets, the PR template, how to test, deploy etiquette.
 - Claims about how GitHub, CI or hosting behave that you haven't verified in
   this repo.
+
+This applies to every section of the summary, including Before merge.
