@@ -1,7 +1,7 @@
 # Runs a Claude Code review on a pull request when it is labeled "claude review".
 # The label is removed when the run finishes so it can be re-added to review again.
 #
-# Setup steps: https://github.com/fourkitchens/pr-review-kit
+# Setup steps: https://github.com/fourkitchens/pr-review-kit/blob/main/docs/SETUP.md
 # The review instructions live in docs/agents/pr-review/.
 #
 # Note: for pull requests opened from forks, GitHub does not expose secrets, so the
