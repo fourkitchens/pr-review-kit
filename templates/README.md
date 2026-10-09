@@ -73,28 +73,29 @@ Leave line-specific findings as inline comments
 with a concrete fix. Then post **one** summary comment with a single
 `gh pr comment <N> --body "..."` call, with the summary written directly in the
 quotes. Don't use `$(...)`, heredocs, pipes or temp files: the workflow's tool
-permissions block them. The summary takes this shape:
+permissions block them, and so does any line starting with `#`, so use bold
+labels instead of Markdown headings. The summary takes this shape:
 
 ```markdown
-## Claude review
+**Claude review**
 
-### What this PR does
+**What this PR does**
 <2–5 sentences in plain language: the problem, the approach, the files that
 carry it. Written for a reviewer who has not opened the diff.>
 
-### Acceptance criteria — <ticket id or "from PR description" or "not found">
+**Acceptance criteria — <ticket id or "from PR description" or "not found">**
 | # | Criterion | Verdict | Evidence |
 |---|-----------|---------|----------|
 
 Scope drift: <list, or "none">
 
-### Findings
+**Findings**
 **Blocking** — <bugs, security, data loss, deploy-order breakage, unmet A.C.>
 **Should fix** — <standards, missing cache metadata, missing translations>
 **Consider** — <optional improvements>
 (Group each by FE / BE / Drupal. Write "none" for an empty level.)
 
-### Before merge
+**Before merge**
 <deploy steps, manual checks on the preview site, client-review need — or "nothing extra">
 ```
 
