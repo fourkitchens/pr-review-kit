@@ -92,12 +92,21 @@ Scope drift: <list, or "none">
 **Findings**
 **Blocking** — <bugs, security, data loss, deploy-order breakage, unmet A.C.>
 **Should fix** — <standards, missing cache metadata, missing translations>
-**Consider** — <optional improvements>
 (Group each by FE / BE / Drupal. Write "none" for an empty level.)
 
 **Before merge**
 <deploy steps, manual checks on the preview site, client-review need — or "nothing extra">
 ```
 
-Keep the summary under ~400 words; detail lives in the inline comments. Report
-only issues introduced or touched by this PR.
+Keep the summary under ~400 words; detail lives in the inline comments.
+
+## What to report
+
+Report only real problems introduced or touched by this PR: each finding points
+to a line in the diff or an unmet criterion, and says what breaks. "None" is a
+good result. Leave out:
+
+- Optional improvements, style preferences and nits a linter would catch.
+- Process reminders: secrets, the PR template, how to test, deploy etiquette.
+- Claims about how GitHub, CI or hosting behave that you haven't verified in
+  this repo.
