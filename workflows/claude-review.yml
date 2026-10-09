@@ -57,7 +57,8 @@ jobs:
             "https://api.clickup.com/api/v2/task/${TICKET}?custom_task_ids=true&team_id=${CLICKUP_TEAM_ID}&include_markdown_description=true" \
             -o task.json; then
             jq -r '"# \(.custom_id // .id): \(.name)\n\nURL: \(.url)\nStatus: \(.status.status)\n\n\(.markdown_description // .text_content // "")\n\n## Checklists\n\((.checklists // []) | map("### \(.name)\n" + ((.items // []) | map("- [\(if .resolved then "x" else " " end)] \(.name)") | join("\n"))) | join("\n\n"))"' \
-              task.json > "$OUT"
+              task.json > "$OUT" \
+              || echo "Could not read ClickUp ticket $TICKET." | tee "$OUT"
           else
             echo "Could not fetch ClickUp ticket $TICKET." | tee "$OUT"
           fi
