@@ -72,6 +72,8 @@ jobs:
           # requires this file to match the default branch and so would fail on PRs
           # that change it. Comments are posted as github-actions[bot].
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # To debug a run, uncomment to print Claude's full transcript in the Actions log.
+          # show_full_output: true
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}

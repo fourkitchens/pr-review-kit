@@ -17,7 +17,9 @@ ticket text.
 
 ## 1. Gather
 
-- PR metadata and body: `gh pr view <N>`; diff: `gh pr diff <N>`.
+- PR metadata and body: `gh pr view <N> --json title,body,labels,files`; diff:
+  `gh pr diff <N>`. Always pass `--json`: plain `gh pr view` also reads check
+  status, which the workflow token can't access.
 - A.C., first source that exists wins:
   1. The ClickUp ticket file named in your prompt (fetched by the workflow).
   2. A.C. or "Purpose" written in the PR body.
@@ -68,8 +70,10 @@ traced to a criterion or listed as drift.
 
 Leave line-specific findings as inline comments
 (`mcp__github_inline_comment__create_inline_comment`), one issue per comment,
-with a concrete fix. Then post **one** summary comment with `gh pr comment`, in
-this shape:
+with a concrete fix. Then post **one** summary comment with a single
+`gh pr comment <N> --body "..."` call, with the summary written directly in the
+quotes. Don't use `$(...)`, heredocs, pipes or temp files: the workflow's tool
+permissions block them. The summary takes this shape:
 
 ```markdown
 ## Claude review
