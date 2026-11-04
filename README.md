@@ -1,7 +1,7 @@
 # PR Review Kit
 
 Claude Code review bot for pull requests on Four Kitchens projects. Adding the
-`claude review` label to a PR runs a review against the ClickUp ticket's
+`claude review` label to a PR runs a review against the Productive task's
 acceptance criteria and posts the findings on the PR.
 
 ## At A Glance
@@ -10,7 +10,7 @@ acceptance criteria and posts the findings on the PR.
 | --- | --- |
 | Trigger | `claude review` label on a pull request |
 | Runs on | GitHub Actions ([claude-code-action](https://github.com/anthropics/claude-code-action)) |
-| Ticket source | ClickUp (optional) |
+| Ticket source | Productive (optional) |
 | Review rules | `docs/agents/pr-review/` in each project |
 | Cost | ~$0.30–2.50 per review with an API key |
 
@@ -19,7 +19,7 @@ acceptance criteria and posts the findings on the PR.
 * [GitHub CLI](https://cli.github.com/)
 * [Claude Code](https://code.claude.com/docs)
 * Claude Pro/Max subscription or Anthropic API key
-* ClickUp API token (optional)
+* Productive API token (optional)
 
 ## Repository Layout
 
