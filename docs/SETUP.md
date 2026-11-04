@@ -144,11 +144,4 @@ git -C ~/dev/pr-review-kit pull
 cp ~/dev/pr-review-kit/workflows/claude-review.yml .github/workflows/
 ```
 
-Projects that used ClickUp also need the `PRODUCTIVE_API_TOKEN` secret (step 4),
-and can delete the old one with `gh secret delete CLICKUP_API_TOKEN`. In their
-`docs/agents/pr-review/README.md`, replace the ClickUp line in the A.C. list
-under "1. Gather" with the Productive one from
-[`templates/README.md`](../templates/README.md): it tells the bot which to-dos
-count as criteria.
-
 Don't overwrite the markdown files; they belong to the project.
