@@ -26,19 +26,19 @@ cp -n ~/dev/pr-review-kit/templates/*.md docs/agents/pr-review/
 * `cp -n` skips files that already exist, so a project's own checklists are never overwritten.
 * If the kit is already cloned, run `git -C ~/dev/pr-review-kit pull` instead of `gh repo clone`.
 
-## 2. Set the ticket prefix
+## 2. Link each PR to its Productive task
 
-In `.github/workflows/claude-review.yml`, replace `<PREFIX>` with the prefix of
-the project's ClickUp ticket ids. For tickets like `BCJ-1234`:
+The bot finds the task by its **task ID**, the long number at the end of the
+task's URL. It looks in two places, in this order:
 
-```yaml
-TICKET_PATTERN: 'BCJ-[0-9]+'
-```
+1. A task link in the **PR description**, e.g.
+   `https://app.productive.io/59815-four-kitchens/projects/<project id>/tasks/task/<task id>`.
+2. The **branch name**, when a segment starts with the task ID, e.g.
+   `feature/<task id>-login-fix`.
 
-Without ClickUp, leave it empty: `TICKET_PATTERN: ''`.
-
-The bot reads the ticket id from the **PR description**, so each PR must include
-the ticket id or its ClickUp link (e.g. `https://app.clickup.com/t/36718269/BCJ-1234`).
+The short number shown on the task (e.g. `#10017`) doesn't work: the Productive
+API can't look a task up by it. If the project's PR template still asks for a
+ClickUp link, change it to ask for the Productive task link.
 
 ## 3. Fill in the markdown files
 
@@ -54,7 +54,7 @@ Follow [Writing the checklists](CHECKLISTS.md). At minimum:
 
 ## 4. Add the secrets
 
-Set **one** of the two Claude secrets, and optionally the ClickUp token. Run the
+Set **one** of the two Claude secrets, and optionally the Productive token. Run the
 `gh secret set` commands from the project folder; each one prompts for the value,
 so it doesn't stay in the shell history.
 
@@ -78,16 +78,24 @@ settings so client code is not used for training.
 4. Optional: set a monthly spend limit for the workspace.
 5. `gh secret set ANTHROPIC_API_KEY`
 
-### ClickUp token (optional)
+### Productive token (optional)
 
-Lets the bot read the ticket's acceptance criteria.
+Lets the bot read the task's acceptance criteria.
 
-1. In ClickUp: avatar → Settings → Apps.
-2. Under "API Token", click Generate (or Copy).
-3. Copy the token (starts with `pk_`).
-4. `gh secret set CLICKUP_API_TOKEN`
+If the repo or the GitHub organization already has a `PRODUCTIVE_API_TOKEN`
+secret for the Productive task sync workflow, the bot uses it and there is nothing to
+add. Otherwise:
 
-The token is personal: the bot sees in ClickUp what its owner sees.
+1. In Productive: Settings → API integrations → Generate new token. The bot
+   only reads, so read-only access is enough.
+2. Copy the token.
+3. `gh secret set PRODUCTIVE_API_TOKEN`
+
+The token is personal: the bot sees in Productive what its owner sees.
+
+The bot uses the Four Kitchens organization (`59815`) unless a
+`PRODUCTIVE_ORG_ID` secret is set, so the secret the task sync workflow uses
+also works here.
 
 ## 5. Create the label
 
@@ -108,8 +116,8 @@ can find the review. The bot works without it.
 
 ## 7. Test
 
-1. Commit, push and open a PR with these changes. To test ClickUp, add a ticket
-   id to its description.
+1. Commit, push and open a PR with these changes. To test Productive, add a task
+   link to its description.
 2. Add the `claude review` label.
 3. Watch the run in the Actions tab. A review takes about 3–6 minutes; then the
    PR gets a "Claude review" comment and the label is removed.
@@ -122,14 +130,14 @@ can find the review. The bot works without it.
 | No run in Actions | The label isn't exactly `claude review`, Actions is off, or the organization doesn't allow `anthropics/claude-code-action` (Settings → Actions → General). |
 | The "Run Claude Code review" step fails | A missing or expired secret (step 4). |
 | The run fails on a PR from a fork | Expected: GitHub doesn't expose secrets to forks. |
-| The review says "A.C. not found" | No ticket id in the PR description, no ClickUp token, or `TICKET_PATTERN` still set to `<PREFIX>` (step 2). |
+| The review says "A.C. not found" | No Productive task link in the PR description or task ID in the branch name (step 2), or no Productive token (step 4). The "Fetch Productive task" step log says which. |
 | The run succeeds but no comment appears | Usually, `docs/agents/pr-review/README.md` is missing on that branch. |
 
 ## Updating a project
 
 Each project keeps its own copy, so changes in this kit don't reach projects
 automatically. To update the workflow, overwrite it (plain `cp`, without `-n`),
-set the ticket prefix again (step 2), then commit it in a PR:
+then commit it in a PR:
 
 ```bash
 git -C ~/dev/pr-review-kit pull

@@ -14,10 +14,8 @@ on:
     types: [labeled]
 
 env:
-  # ClickUp ticket id in the PR body, e.g. 'BCJ-[0-9]+'. Leave empty to skip ClickUp.
-  TICKET_PATTERN: '<PREFIX>-[0-9]+'
-  # Four Kitchens ClickUp workspace.
-  CLICKUP_TEAM_ID: '36718269'
+  # Productive organization: the PRODUCTIVE_ORG_ID secret if set, else Four Kitchens.
+  PRODUCTIVE_ORG_ID: ${{ secrets.PRODUCTIVE_ORG_ID || '59815' }}
 
 jobs:
   review:
@@ -34,34 +32,63 @@ jobs:
         with:
           fetch-depth: 1
 
-      # Fetches the ClickUp ticket linked in the PR body so the review can check
-      # its acceptance criteria. Skipped quietly when there is no token, no
-      # pattern or no ticket id; the review then falls back to the PR description.
-      - name: Fetch ClickUp ticket
+      # Fetches the Productive task so the review can check its acceptance
+      # criteria. Finds the task ID in a task link in the PR description, or else
+      # at the start of a branch segment (feature/21323404-login-fix). Skipped
+      # quietly when there is no token or no task; the review then falls back to
+      # the PR description.
+      - name: Fetch Productive task
         env:
-          CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}
+          PRODUCTIVE_API_TOKEN: ${{ secrets.PRODUCTIVE_API_TOKEN }}
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
           OUT="$GITHUB_WORKSPACE/.claude-review/ticket.md"
           mkdir -p "$(dirname "$OUT")"
-          TICKET=""
-          if [ -n "$TICKET_PATTERN" ]; then
-            TICKET=$(printf '%s' "$PR_BODY" | grep -oE "$TICKET_PATTERN" | head -1 || true)
-          fi
-          if [ -z "$CLICKUP_API_TOKEN" ] || [ -z "$TICKET" ]; then
-            echo "No ClickUp token or ticket id; skipping." | tee "$OUT"
+          if [ -z "$PRODUCTIVE_API_TOKEN" ]; then
+            echo "No Productive token; skipping." | tee "$OUT"
             exit 0
           fi
-          if curl -sSf -H "Authorization: $CLICKUP_API_TOKEN" \
-            "https://api.clickup.com/api/v2/task/${TICKET}?custom_task_ids=true&team_id=${CLICKUP_TEAM_ID}&include_markdown_description=true" \
-            -o task.json; then
-            jq -r '"# \(.custom_id // .id): \(.name)\n\nURL: \(.url)\nStatus: \(.status.status)\n\n\(.markdown_description // .text_content // "")\n\n## Checklists\n\((.checklists // []) | map("### \(.name)\n" + ((.items // []) | map("- [\(if .resolved then "x" else " " end)] \(.name)") | join("\n"))) | join("\n\n"))"' \
-              task.json > "$OUT" \
-              || echo "Could not read ClickUp ticket $TICKET." | tee "$OUT"
-          else
-            echo "Could not fetch ClickUp ticket $TICKET." | tee "$OUT"
+          # Headers go to curl on stdin, so the token stays out of the process
+          # list. --globoff: filter[...] in the URL is not a curl glob.
+          api() {
+            printf 'X-Auth-Token: %s\nX-Organization-Id: %s\nContent-Type: application/vnd.api+json\n' \
+              "$PRODUCTIVE_API_TOKEN" "$PRODUCTIVE_ORG_ID" \
+              | curl --silent --show-error --fail --globoff --header @- \
+                "https://api.productive.io/api/v2/$1"
+          }
+
+          # 1. A task link: https://app.productive.io/<org>/[projects/<id>/]tasks/task/<task id>
+          TASK_ID=$(printf '%s' "$PR_BODY" | grep -oE 'app\.productive\.io/[^ )>]*/task/[0-9]+' \
+            | head -1 | grep -oE '[0-9]+$' || true)
+          # 2. The task ID at the start of a branch segment: feature/21323404-login-fix.
+          if [ -z "$TASK_ID" ]; then
+            TASK_ID=$(printf '%s' "$PR_BRANCH" | grep -oE '(^|/)[0-9]{6,}([-_/]|$)' \
+              | head -1 | grep -oE '[0-9]+' || true)
           fi
+          if [ -z "$TASK_ID" ]; then
+            echo "No Productive task link in the PR description or task ID in the branch name; skipping." | tee "$OUT"
+            exit 0
+          fi
+
+          if ! api "tasks/$TASK_ID" > task.json; then
+            echo "Could not fetch Productive task $TASK_ID." | tee "$OUT"
+            exit 0
+          fi
+          api "todos?filter[task_id]=$TASK_ID&page[size]=200" > todos.json || echo '{"data":[]}' > todos.json
+          # Descriptions are HTML; plain text keeps the lists at a fraction of the tokens.
+          jq -r --slurpfile todos todos.json --arg id "$TASK_ID" '
+            def text: gsub("<br */?>|</p>|</li>|</h[1-6]>|</div>"; "\n") | gsub("<li[^>]*>"; "- ")
+              | gsub("<[^>]+>"; "") | gsub("&nbsp;"; " ") | gsub("&lt;"; "<") | gsub("&gt;"; ">")
+              | gsub("&quot;"; "\"") | gsub("&#0*39;|&apos;"; "\u0027") | gsub("&amp;"; "&");
+            .data.attributes as $t
+            | "# \($t.task_number // $id): \($t.title)\n\n\(($t.description // "") | text)\n\n## To-dos\n"
+              + ($todos[0].data // [] | sort_by(.attributes.position)
+                 | map("- [\(if .attributes.closed then "x" else " " end)] \(.attributes.description)")
+                 | if length == 0 then "None." else join("\n") end)
+          ' task.json > "$OUT" \
+            || echo "Could not read Productive task $TASK_ID." | tee "$OUT"
 
       - name: Run Claude Code review
         uses: anthropics/claude-code-action@v1
@@ -78,7 +105,7 @@ jobs:
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
-            CLICKUP TICKET FILE: .claude-review/ticket.md
+            PRODUCTIVE TASK FILE: .claude-review/ticket.md
 
             Read docs/agents/pr-review/README.md and follow it to review this
             pull request.

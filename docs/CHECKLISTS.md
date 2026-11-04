@@ -7,7 +7,7 @@ markdown files: rules that apply to **this** project.
 
 * **Short.** 6–10 items per file. Long lists get skimmed, by people and by the bot.
 * **Project-specific.** "Write clean code" adds nothing. "Logic goes in the
-  `bcj_*` module that owns the topic" does.
+  `<project>_*` module that owns the topic" does.
 * **Checkable.** Each item is a yes/no question about the diff.
 * **Bold name + one line.** `- **Cache metadata.** Entities loaded in preprocess add their cache tags.`
 * **Link, don't copy.** If the project already has a longer doc, link it.

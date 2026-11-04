@@ -2,7 +2,8 @@
 
 ## Running a review
 
-1. Include the ticket id or its ClickUp link in the PR description.
+1. Include the Productive task link in the PR description, or start the branch
+   name with the task ID (`feature/<task id>-login-fix`).
 2. Add the `claude review` label.
 3. After a few minutes, read the summary comment and the inline comments,
    starting with "Blocking".
@@ -12,8 +13,10 @@ The bot supports the reviewer; a person still reviews and approves the PR.
 
 ## What the bot does
 
-1. **Finds the ticket.** Takes the first ticket id in the PR description and
-   fetches it from ClickUp (if configured; otherwise it uses the PR description).
+1. **Finds the ticket.** Takes the task ID from the first Productive task link
+   in the PR description, or else from the branch name, and fetches the task and
+   its to-dos from Productive (if configured; otherwise it uses the PR
+   description).
 2. **Reads the PR.** Description and diff, plus the project's `AGENTS.md` and
    `docs/agents/review-pitfalls.md` if present.
 3. **Sorts the files** into frontend, backend and Drupal, and applies each
