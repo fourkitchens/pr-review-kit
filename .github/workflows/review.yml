@@ -15,6 +15,11 @@ name: Claude Code Review
 
 on:
   workflow_call:
+    inputs:
+      organization-id:
+        description: Productive organization ID.
+        type: string
+        default: '59815'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: false
@@ -22,16 +27,12 @@ on:
         required: false
       PRODUCTIVE_API_TOKEN:
         required: false
-      PRODUCTIVE_ORG_ID:
-        required: false
-
-env:
-  # Productive organization: the PRODUCTIVE_ORG_ID secret if set, else Four Kitchens.
-  PRODUCTIVE_ORG_ID: ${{ secrets.PRODUCTIVE_ORG_ID || '59815' }}
 
 jobs:
   review:
     runs-on: ubuntu-latest
+    # A review takes 3–6 minutes; this stops a stuck one from running for hours.
+    timeout-minutes: 20
     # One review per PR at a time: adding the label again cancels the running one.
     concurrency:
       group: claude-review-${{ github.repository }}-${{ github.event.pull_request.number }}
@@ -48,50 +49,104 @@ jobs:
           fetch-depth: 1
 
       # Fetches the Productive task so the review can check its acceptance
-      # criteria. Finds the task ID in a task link in the PR description, or else
-      # at the start of a branch segment (feature/21323404-login-fix). Skipped
-      # quietly when there is no token or no task; the review then falls back to
-      # the PR description.
+      # criteria. Finds the task, first match wins:
+      #   1. A task link in the PR description.
+      #   2. The start of a branch segment: the task ID from the task's URL
+      #      (feature/21323404-login-fix) or the task code shown in Productive, in
+      #      any case (feature/BCJX-10103-login-fix). Same convention as
+      #      fourkitchens/productive-sync.
+      # Skipped with a notice when there is no token or no task; the review then
+      # falls back to the PR description.
       - name: Fetch Productive task
         env:
           PRODUCTIVE_API_TOKEN: ${{ secrets.PRODUCTIVE_API_TOKEN }}
+          PRODUCTIVE_ORG_ID: ${{ inputs.organization-id }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
           OUT="$GITHUB_WORKSPACE/.claude-review/ticket.md"
+          RESPONSE="$RUNNER_TEMP/productive.json"
           mkdir -p "$(dirname "$OUT")"
-          if [ -z "$PRODUCTIVE_API_TOKEN" ]; then
-            echo "No Productive token; skipping." | tee "$OUT"
+          skip() {
+            echo "::notice title=Productive task::$1"
+            echo "$1" > "$OUT"
+            echo "**Productive task:** $1" >> "$GITHUB_STEP_SUMMARY"
             exit 0
+          }
+          if [ -z "$PRODUCTIVE_API_TOKEN" ]; then
+            skip "No PRODUCTIVE_API_TOKEN; the review uses the PR description."
           fi
-          # Headers go to curl on stdin, so the token stays out of the process
-          # list. --globoff: filter[...] in the URL is not a curl glob.
+          # Writes the response to $RESPONSE and prints the HTTP status (000 when
+          # Productive can't be reached). Headers go to curl on stdin, so the token
+          # stays out of the process list. --globoff: filter[...] is not a curl glob.
           api() {
             printf 'X-Auth-Token: %s\nX-Organization-Id: %s\nContent-Type: application/vnd.api+json\n' \
               "$PRODUCTIVE_API_TOKEN" "$PRODUCTIVE_ORG_ID" \
-              | curl --silent --show-error --fail --globoff --header @- \
-                "https://api.productive.io/api/v2/$1"
+              | curl --silent --show-error --globoff --header @- --output "$RESPONSE" \
+                --write-out '%{http_code}' "https://api.productive.io/api/v2/$1" || true
+          }
+          denied() {
+            echo "::warning title=Productive task::Productive returned HTTP $1 for $2. Check that PRODUCTIVE_API_TOKEN is valid and organization-id is right."
+            skip "Productive returned HTTP $1; the review uses the PR description."
           }
 
-          # 1. A task link: https://app.productive.io/<org>/[projects/<id>/]tasks/task/<task id>
-          TASK_ID=$(printf '%s' "$PR_BODY" | grep -oE 'app\.productive\.io/[^ )>]*/task/[0-9]+' \
+          # Candidates, best guess first: "id:<task id>" or "code:<task code>".
+          CANDIDATES=()
+          LINK_ID=$(printf '%s' "$PR_BODY" | grep -oE 'app\.productive\.io/[^ )>]*/task/[0-9]+' \
             | head -1 | grep -oE '[0-9]+$' || true)
-          # 2. The task ID at the start of a branch segment: feature/21323404-login-fix.
-          if [ -z "$TASK_ID" ]; then
-            TASK_ID=$(printf '%s' "$PR_BRANCH" | grep -oE '(^|/)[0-9]{6,}([-_/]|$)' \
-              | head -1 | grep -oE '[0-9]+' || true)
-          fi
-          if [ -z "$TASK_ID" ]; then
-            echo "No Productive task link in the PR description or task ID in the branch name; skipping." | tee "$OUT"
-            exit 0
+          if [ -n "$LINK_ID" ]; then CANDIDATES+=("id:$LINK_ID"); fi
+          IFS=/ read -ra SEGMENTS <<< "$PR_BRANCH"
+          for segment in "${SEGMENTS[@]}"; do
+            if [[ "$segment" =~ ^([0-9]{6,})([-_]|$) ]]; then
+              CANDIDATES+=("id:${BASH_REMATCH[1]}")
+            elif [[ "$segment" =~ ^([A-Za-z0-9]+(-[0-9]+)+) ]]; then
+              # Task code formats vary, so also try it with trailing numbers
+              # dropped: 4K-26-4-19-2-fix tries 4K-26-4-19-2, 4K-26-4-19, 4K-26-4.
+              code="${BASH_REMATCH[1]}"
+              while [[ "$code" == *-* ]]; do
+                CANDIDATES+=("code:$code")
+                code="${code%-*}"
+              done
+            fi
+          done
+          if [ "${#CANDIDATES[@]}" -eq 0 ]; then
+            skip "No task link in the PR description and no task ID or code in branch '$PR_BRANCH'."
           fi
 
-          if ! api "tasks/$TASK_ID" > task.json; then
-            echo "Could not fetch Productive task $TASK_ID." | tee "$OUT"
-            exit 0
+          TASK_ID=""
+          for candidate in "${CANDIDATES[@]}"; do
+            ref="${candidate#*:}"
+            if [ "${candidate%%:*}" = id ]; then
+              status=$(api "tasks/$ref")
+              case "$status" in
+                2*) TASK_ID="$ref" ;;
+                404) ;;
+                *) denied "$status" "task $ref" ;;
+              esac
+            else
+              status=$(api "tasks?filter[task_number]=$ref&page[size]=2")
+              case "$status" in
+                2*) ;;
+                *) denied "$status" "task code $ref" ;;
+              esac
+              # Task codes aren't unique across projects; never guess between tasks.
+              case "$(jq '.data | length' "$RESPONSE")" in
+                0) ;;
+                1) TASK_ID=$(jq -r '.data[0].id' "$RESPONSE") ;;
+                *) skip "Task code $ref matches more than one task. Link the task in the PR description." ;;
+              esac
+            fi
+            if [ -n "$TASK_ID" ]; then break; fi
+          done
+          if [ -z "$TASK_ID" ]; then
+            skip "No Productive task matches the PR description or branch '$PR_BRANCH', or the token can't see its project."
           fi
-          api "todos?filter[task_id]=$TASK_ID&page[size]=200" > todos.json || echo '{"data":[]}' > todos.json
+
+          status=$(api "tasks/$TASK_ID")
+          case "$status" in 2*) cp "$RESPONSE" task.json ;; *) denied "$status" "task $TASK_ID" ;; esac
+          status=$(api "todos?filter[task_id]=$TASK_ID&page[size]=200")
+          case "$status" in 2*) cp "$RESPONSE" todos.json ;; *) echo '{"data":[]}' > todos.json ;; esac
           # Descriptions are HTML; plain text keeps the lists at a fraction of the tokens.
           jq -r --slurpfile todos todos.json --arg id "$TASK_ID" '
             def text: gsub("<br */?>|</p>|</li>|</h[1-6]>|</div>"; "\n") | gsub("<li[^>]*>"; "- ")
@@ -103,7 +158,8 @@ jobs:
                  | map("- [\(if .attributes.closed then "x" else " " end)] \(.attributes.description)")
                  | if length == 0 then "None." else join("\n") end)
           ' task.json > "$OUT" \
-            || echo "Could not read Productive task $TASK_ID." | tee "$OUT"
+            || skip "Could not read Productive task $TASK_ID; the review uses the PR description."
+          echo "**Productive task:** $(head -1 "$OUT" | sed 's/^# //') (ID $TASK_ID)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run Claude Code review
         uses: anthropics/claude-code-action@v1

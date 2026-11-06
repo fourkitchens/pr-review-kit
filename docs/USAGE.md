@@ -5,20 +5,28 @@
 1. Link the PR to its Productive task (see below).
 2. Add the `claude review` label.
 3. After a few minutes, read the summary comment and the inline comments,
-   starting with "Blocking".
+   starting with "Blocker".
 4. After pushing fixes, add the label again for a new review.
 
 The bot supports the reviewer; a person still reviews and approves the PR.
 
 ## Linking the Productive task
 
-The bot finds the task by its task ID, the long number at the end of the task's
-URL. It looks first for a task link in the PR description
-(`https://app.productive.io/59815-four-kitchens/projects/<project id>/tasks/task/<task id>`),
-then for a branch name that starts with the task ID (`feature/<task id>-login-fix`).
+The bot looks first for a task link in the PR description
+(`https://app.productive.io/59815-four-kitchens/projects/<project id>/tasks/task/<task id>`).
+Without one, it reads the branch name. Start any part of it with:
 
-The short task number (e.g. `#10017`) doesn't work: Productive can't look a
-task up by it.
+* the task ID, the long number at the end of the task's URL:
+  `feature/21323404-login-fix`
+* or the task code shown in Productive, in any case: `feature/BCJX-10103-login-fix`
+
+This is the same branch name
+[productive-sync](https://github.com/fourkitchens/productive-sync) uses, so one
+name works for both.
+
+Some task codes belong to more than one task. When that happens the bot doesn't
+guess: link the task in the PR description. The run's summary in Actions shows
+which task the bot used.
 
 ## Keeping the rules current
 
