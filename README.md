@@ -35,6 +35,12 @@ acceptance criteria and posts the findings on the PR.
 * [Setup](docs/SETUP.md)
 * [Usage](docs/USAGE.md)
 
+## Versions
+
+Projects call the review with `@v1`, which points at the latest `v1.x.y`
+release, so fixes arrive on their own. To take updates only when you choose,
+pin a release (`@v1.0.0`) in the project's `.github/workflows/claude-review.yml`.
+
 ## Contributing
 
 Open an issue or a pull request in this repo.
