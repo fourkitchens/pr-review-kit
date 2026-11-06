@@ -1,147 +1,113 @@
 # Setup
 
-Adds the review bot to a project. Most of the time goes into writing the
-checklists (step 3).
+Adds the review bot to a Drupal project. Most of the time goes into writing the
+project's rules (step 2).
 
-## Requirements
+You need admin access to the project's GitHub repo, read access to
+`fourkitchens/pr-review-kit`, and the [GitHub CLI](https://cli.github.com/)
+logged in.
 
-* Admin access to the project's GitHub repo
-* [GitHub CLI](https://cli.github.com/), logged in (`gh auth login`)
-* [Claude Code](https://code.claude.com/docs), used to get the token (step 4) and to draft the checklists
-* Claude Pro/Max subscription or Anthropic API key
+## 1. Install
 
-## 1. Copy the files
+From your project's root, run:
 
 ```bash
-gh repo clone fourkitchens/pr-review-kit ~/dev/pr-review-kit
-cd ~/dev/<your-project>
-git switch main && git pull
-git switch -c add-pr-review
-mkdir -p .github/workflows docs/agents/pr-review
-cp -n ~/dev/pr-review-kit/workflows/claude-review.yml .github/workflows/
-cp -n ~/dev/pr-review-kit/templates/*.md docs/agents/pr-review/
+composer config repositories.pr-review-kit vcs git@github.com:fourkitchens/pr-review-kit.git
+composer config --json --merge extra.drupal-scaffold.allowed-packages '["fourkitchens/pr-review-kit"]'
+composer require --dev fourkitchens/pr-review-kit:^1
 ```
 
-* Use the project's default branch if it isn't `main`.
-* `cp -n` skips files that already exist, so a project's own checklists are never overwritten.
-* If the kit is already cloned, run `git -C ~/dev/pr-review-kit pull` instead of `gh repo clone`.
+This adds `.github/workflows/claude-review.yml` and the rule files in
+`docs/agents/pr-review/`. Files that already exist are never overwritten.
 
-## 2. Link each PR to its Productive task
+## 2. Write the project's rules
 
-The bot finds the task by its **task ID**, the long number at the end of the
-task's URL. It looks in two places, in this order:
+The review is only as good as these rules. Good rules are:
 
-1. A task link in the **PR description**, e.g.
-   `https://app.productive.io/59815-four-kitchens/projects/<project id>/tasks/task/<task id>`.
-2. The **branch name**, when a segment starts with the task ID, e.g.
-   `feature/<task id>-login-fix`.
+* **Short.** 6–10 items per file. Long lists get skimmed, by people and by the bot.
+* **Specific to the project.** "Write clean code" adds nothing. "Logic goes in the
+  `<project>_*` module that owns the topic" does.
+* **Yes or no.** Each item is a question you can answer by looking at the diff.
+* **A bold name and one line.** `- **Cache metadata.** Entities loaded in preprocess add their cache tags.`
+* **Linked, not copied.** If the project already has a longer doc, link to it.
 
-The short number shown on the task (e.g. `#10017`) doesn't work: the Productive
-API can't look a task up by it. If the project's PR template still asks for a
-ClickUp link, change it to ask for the Productive task link.
+Claude Code can write the first draft. Open it in your project's root and paste
+these prompts.
 
-## 3. Fill in the markdown files
+**a. Pitfalls from past PRs (optional).** A list of what reviewers on this project
+catch again and again. Skip it on a new project with few PRs.
 
-Follow [Writing the checklists](CHECKLISTS.md). At minimum:
+```text
+Read the review comments on the last 100 merged PRs of this repo
+(`gh pr list --state merged -L 100`, then `gh api` for each PR's review
+comments and reviews). Find the issues reviewers raise more than once.
 
-* In `docs/agents/pr-review/README.md`:
-  * Replace `<Drupal>` with the project's stack.
-  * Check that the paths in the area table match the repo.
-  * In the preview URL, replace `<site>` with the Pantheon site name, or the whole
-    URL if the project isn't on Pantheon. Leave `<N>` and `<path>`; the bot fills them.
-* In `frontend.md`, `backend.md` and `drupal.md`, replace or delete every `<...>`.
-  The bot reads whatever is left.
+Write docs/agents/review-pitfalls.md: a "# Review pitfalls" title, then the
+issues grouped into 5–8 numbered "## N. <Topic>" sections, one bullet per rule,
+each ending with the PR number that shows it, e.g. "(PR #123)".
+Skip one-off comments and generic advice. Don't invent rules that the comments
+don't show.
+```
 
-## 4. Add the secrets
+**b. The checklists.**
 
-Set **one** of the two Claude secrets, and optionally the Productive token. Run the
-`gh secret set` commands from the project folder; each one prompts for the value,
-so it doesn't stay in the shell history.
+```text
+Fill in docs/agents/pr-review/README.md, frontend.md, backend.md and drupal.md
+from their templates. Use what you learn from this repo's code (themes, custom
+modules, config layout, tooling) and from docs/agents/review-pitfalls.md if it
+exists.
 
-### Option A: Claude subscription (testing)
+In README.md, replace <Drupal> with the project's stack, check that the paths
+in the area table match this repo, and replace <site> in the preview URL with
+the Pantheon site name. Leave <N> and <path>; the bot fills them in.
 
-Requires a Claude Pro or Max plan.
+In the other files: keep the generic items that apply, replace every <...>
+placeholder, add project-specific items, and delete items that don't apply.
+6–10 items per file, each a bold name plus one line.
+```
 
-1. Run `claude setup-token`.
-2. Log in with the Claude account in the browser window that opens.
-3. Copy the printed token (starts with `sk-ant-oat`).
-4. `gh secret set CLAUDE_CODE_OAUTH_TOKEN`
+**c. Review the drafts.** Claude drafts, a person decides. In each file, delete
+anything generic or wrong, keep an item only if it has happened in this project,
+and remove the `<!-- Template ... -->` comment at the top.
 
-With a personal account, turn off "Help improve Claude" in Claude's privacy
-settings so client code is not used for training.
+## 3. Add the secrets
 
-### Option B: Company API key (team use)
+From your project's root, run these. Each one asks for the value.
 
-1. Log in to the [Claude Console](https://platform.claude.com) with the company account.
-2. Settings → API keys → Create key, named e.g. `<project>-pr-review`.
-3. Copy the key (starts with `sk-ant-api`). It is shown only once.
-4. Optional: set a monthly spend limit for the workspace.
-5. `gh secret set ANTHROPIC_API_KEY`
+```bash
+gh secret set ANTHROPIC_API_KEY      # Claude Console → Settings → API keys
+gh secret set PRODUCTIVE_API_TOKEN   # Productive → Settings → API integrations (optional)
+```
 
-### Productive token (optional)
+Skip any secret the GitHub organization already has. Without the Productive
+token, the bot reviews against the PR description instead of the task.
 
-Lets the bot read the task's acceptance criteria.
+To test with a personal Claude Pro or Max plan instead of an API key, run
+`claude setup-token` and save the token with `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.
 
-If the repo or the GitHub organization already has a `PRODUCTIVE_API_TOKEN`
-secret for the Productive task sync workflow, the bot uses it and there is nothing to
-add. Otherwise:
-
-1. In Productive: Settings → API integrations → Generate new token. The bot
-   only reads, so read-only access is enough.
-2. Copy the token.
-3. `gh secret set PRODUCTIVE_API_TOKEN`
-
-The token is personal: the bot sees in Productive what its owner sees.
-
-The bot uses the Four Kitchens organization (`59815`) unless a
-`PRODUCTIVE_ORG_ID` secret is set, so the secret the task sync workflow uses
-also works here.
-
-## 5. Create the label
+## 4. Create the label and test
 
 ```bash
 gh label create "claude review" --color 6f42c1 --description "Runs a Claude review of the PR" --force
 ```
 
-`--force` updates the label if it already exists.
-
-## 6. Link the review from AGENTS.md (optional)
-
-If the project has an `AGENTS.md` or `CLAUDE.md`, add this line so local agents
-can find the review. The bot works without it.
-
-```markdown
-- **PR review** — steps and checklists used by the `claude review` label → [`docs/agents/pr-review/README.md`](docs/agents/pr-review/README.md)
-```
-
-## 7. Test
-
-1. Commit, push and open a PR with these changes. To test Productive, add a task
-   link to its description.
-2. Add the `claude review` label.
-3. Watch the run in the Actions tab. A review takes about 3–6 minutes; then the
-   PR gets a "Claude review" comment and the label is removed.
-4. Merge the PR. From then on, the label works on any PR.
+Commit, push and open a PR, then add the `claude review` label. After about
+3–6 minutes the PR gets a "Claude review" comment and the label is removed.
+Merge the PR, and the label works on any PR.
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 | --- | --- |
-| No run in Actions | The label isn't exactly `claude review`, Actions is off, or the organization doesn't allow `anthropics/claude-code-action` (Settings → Actions → General). |
-| The "Run Claude Code review" step fails | A missing or expired secret (step 4). |
-| The run fails on a PR from a fork | Expected: GitHub doesn't expose secrets to forks. |
-| The review says "A.C. not found" | No Productive task link in the PR description or task ID in the branch name (step 2), or no Productive token (step 4). The "Fetch Productive task" step log says which. |
-| The run succeeds but no comment appears | Usually, `docs/agents/pr-review/README.md` is missing on that branch. |
+| `composer require` adds no files | The package isn't allowed (step 1). Add it, then run `composer drupal:scaffold`. |
+| `composer require` can't download the package | No read access to `fourkitchens/pr-review-kit`, or no SSH key for GitHub. |
+| No run in Actions | The label isn't exactly `claude review`, or Actions is off. |
+| The run fails right away | pr-review-kit doesn't share its workflows with the organization (pr-review-kit → Settings → Actions → General → Access). |
+| The review step fails | A missing or expired secret (step 3). |
+| The review says "A.C. not found" | The PR isn't linked to a Productive task (see [Usage](USAGE.md)), or there's no Productive token. |
 
-## Updating a project
+## Updates
 
-Each project keeps its own copy, so changes in this kit don't reach projects
-automatically. To update the workflow, overwrite it (plain `cp`, without `-n`),
-then commit it in a PR:
-
-```bash
-git -C ~/dev/pr-review-kit pull
-cp ~/dev/pr-review-kit/workflows/claude-review.yml .github/workflows/
-```
-
-Don't overwrite the markdown files; they belong to the project.
+Changes to the review reach every project on its next run. The files in
+`docs/agents/pr-review/` belong to the project, and `composer update` never
+overwrites them.
