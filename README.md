@@ -6,8 +6,8 @@ acceptance criteria and posts the findings on the PR.
 
 ## At A Glance
 
-| Item | Details |
-| --- | --- |
+|   |   |
+|---|---|
 | Trigger | `claude review` label on a pull request |
 | Runs on | GitHub Actions ([claude-code-action](https://github.com/anthropics/claude-code-action)) |
 | Ticket source | Productive (optional) |
@@ -16,24 +16,24 @@ acceptance criteria and posts the findings on the PR.
 
 ## Dependencies and Requirements
 
+* [Composer](https://getcomposer.org/)
 * [GitHub CLI](https://cli.github.com/)
 * [Claude Code](https://code.claude.com/docs)
-* Claude Pro/Max subscription or Anthropic API key
-* Productive API token (optional)
 
 ## Repository Layout
 
 | Path | Purpose |
 | --- | --- |
-| `workflows/claude-review.yml` | Review workflow. Copy to `.github/workflows/`. |
-| `templates/` | Review instructions and checklist templates. Copy to `docs/agents/pr-review/`. |
-| `docs/` | Setup, usage and checklist guides. |
+| `.github/workflows/review.yml` | Review workflow, shared by all projects. |
+| `templates/workflow/` | Project workflow. Goes in the project's `.github/workflows/`. |
+| `templates/pr-review/` | Review instructions and checklists. Go in the project's `docs/agents/pr-review/`. |
+| `composer.json` | Composer package. Installing it adds the templates to the project. |
+| `docs/` | Setup and usage guides. |
 
 ## Documentation
 
 * [Setup](docs/SETUP.md)
 * [Usage](docs/USAGE.md)
-* [Writing the checklists](docs/CHECKLISTS.md)
 
 ## Contributing
 

@@ -2,8 +2,7 @@
 
 ## Running a review
 
-1. Include the Productive task link in the PR description, or start the branch
-   name with the task ID (`feature/<task id>-login-fix`).
+1. Link the PR to its Productive task (see below).
 2. Add the `claude review` label.
 3. After a few minutes, read the summary comment and the inline comments,
    starting with "Blocking".
@@ -11,12 +10,27 @@
 
 The bot supports the reviewer; a person still reviews and approves the PR.
 
+## Linking the Productive task
+
+The bot finds the task by its task ID, the long number at the end of the task's
+URL. It looks first for a task link in the PR description
+(`https://app.productive.io/59815-four-kitchens/projects/<project id>/tasks/task/<task id>`),
+then for a branch name that starts with the task ID (`feature/<task id>-login-fix`).
+
+The short task number (e.g. `#10017`) doesn't work: Productive can't look a
+task up by it.
+
+## Keeping the rules current
+
+When a review catches the same problem twice, add one line to
+`docs/agents/review-pitfalls.md` with the PR number (create the file if needed).
+The rules in `docs/agents/pr-review/` belong to the project; change them as the
+project changes.
+
 ## What the bot does
 
-1. **Finds the ticket.** Takes the task ID from the first Productive task link
-   in the PR description, or else from the branch name, and fetches the task and
-   its to-dos from Productive (if configured; otherwise it uses the PR
-   description).
+1. **Reads the task.** Fetches the linked Productive task and its to-dos. Without
+   a task or a Productive token, it uses the PR description.
 2. **Reads the PR.** Description and diff, plus the project's `AGENTS.md` and
    `docs/agents/review-pitfalls.md` if present.
 3. **Sorts the files** into frontend, backend and Drupal, and applies each

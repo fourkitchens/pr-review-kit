@@ -1,8 +1,12 @@
-# Runs a Claude Code review on a pull request when it is labeled "claude review".
+# Shared Claude Code review workflow. Each project's
+# .github/workflows/claude-review.yml calls it (see templates/workflow/claude-review.yml),
+# so changes here reach every project on its next run.
+#
+# It runs in the calling project's context: it checks out the project, reads the
+# project's docs/agents/pr-review/, and reviews the PR that triggered the caller.
 # The label is removed when the run finishes so it can be re-added to review again.
 #
 # Setup steps: https://github.com/fourkitchens/pr-review-kit/blob/main/docs/SETUP.md
-# The review instructions live in docs/agents/pr-review/.
 #
 # Note: for pull requests opened from forks, GitHub does not expose secrets, so the
 # review will not run for fork PRs.
@@ -10,8 +14,16 @@
 name: Claude Code Review
 
 on:
-  pull_request:
-    types: [labeled]
+  workflow_call:
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      PRODUCTIVE_API_TOKEN:
+        required: false
+      PRODUCTIVE_ORG_ID:
+        required: false
 
 env:
   # Productive organization: the PRODUCTIVE_ORG_ID secret if set, else Four Kitchens.
@@ -19,8 +31,11 @@ env:
 
 jobs:
   review:
-    if: github.event.label.name == 'claude review'
     runs-on: ubuntu-latest
+    # One review per PR at a time: adding the label again cancels the running one.
+    concurrency:
+      group: claude-review-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     permissions:
       contents: read
       pull-requests: write
@@ -97,8 +112,8 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Use the workflow token instead of the Claude App token exchange, which
-          # requires this file to match the default branch and so would fail on PRs
-          # that change it. Comments are posted as github-actions[bot].
+          # requires the project's workflow file to match its default branch and so
+          # would fail on PRs that change it. Comments are posted as github-actions[bot].
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # To debug a run, uncomment to print Claude's full transcript in the Actions log.
           # show_full_output: true
@@ -117,4 +132,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: gh pr edit "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "claude review"
+        # A cancelled run may find the label already gone; that's fine.
+        run: gh pr edit "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "claude review" || true

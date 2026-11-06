@@ -1,0 +1,27 @@
+# Runs the Claude Code review when a pull request is labeled "claude review".
+# The review itself lives in fourkitchens/pr-review-kit, so updates arrive
+# without changing this file. The project's own rules live in docs/agents/pr-review/.
+#
+# Setup steps: https://github.com/fourkitchens/pr-review-kit/blob/main/docs/SETUP.md
+
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  review:
+    if: github.event.label.name == 'claude review'
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read
+    uses: fourkitchens/pr-review-kit/.github/workflows/review.yml@v1
+    # Only the secrets the review needs, whether set on the repo or the organization.
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      PRODUCTIVE_API_TOKEN: ${{ secrets.PRODUCTIVE_API_TOKEN }}
+      PRODUCTIVE_ORG_ID: ${{ secrets.PRODUCTIVE_ORG_ID }}

@@ -1,0 +1,35 @@
+{
+    "name": "fourkitchens/pr-review-kit",
+    "description": "Claude Code review bot for pull requests on Four Kitchens Drupal projects.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "drupal/core-composer-scaffold": "^10 || ^11"
+    },
+    "extra": {
+        "drupal-scaffold": {
+            "file-mapping": {
+                "[project-root]/.github/workflows/claude-review.yml": {
+                    "path": "templates/workflow/claude-review.yml",
+                    "overwrite": false
+                },
+                "[project-root]/docs/agents/pr-review/README.md": {
+                    "path": "templates/pr-review/README.md",
+                    "overwrite": false
+                },
+                "[project-root]/docs/agents/pr-review/frontend.md": {
+                    "path": "templates/pr-review/frontend.md",
+                    "overwrite": false
+                },
+                "[project-root]/docs/agents/pr-review/backend.md": {
+                    "path": "templates/pr-review/backend.md",
+                    "overwrite": false
+                },
+                "[project-root]/docs/agents/pr-review/drupal.md": {
+                    "path": "templates/pr-review/drupal.md",
+                    "overwrite": false
+                }
+            }
+        }
+    }
+}
