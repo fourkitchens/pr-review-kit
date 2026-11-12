@@ -28,12 +28,13 @@ acceptance criteria and posts the findings on the PR.
 | `templates/workflow/` | Project workflow. Goes in the project's `.github/workflows/`. |
 | `templates/pr-review/` | Review instructions and checklists. Go in the project's `docs/agents/pr-review/`. |
 | `composer.json` | Composer package. Installing it adds the templates to the project. |
-| `docs/` | Setup and usage guides. |
+| `docs/` | Setup, usage and release guides. |
 
 ## Documentation
 
 * [Setup](docs/SETUP.md)
 * [Usage](docs/USAGE.md)
+* [Release](docs/RELEASE.md)
 
 ## Versions
 
