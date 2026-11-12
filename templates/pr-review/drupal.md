@@ -21,7 +21,7 @@ Applies to exported config (`config/**`), install/update/deploy hooks, module
   Changed config defaults that must apply to existing content come with a hook
   or a documented manual step.
 - **Module removal.** A module is uninstalled in one deploy and removed from
-  `composer.json` in a later one; both in the same PR is blocking.
+  `composer.json` in a later one; both in the same PR is a Blocker.
 - **Permissions and roles.** Permission changes are intentional and minimal;
   nothing grants admin-level permissions without the ticket asking.
 - **Deploy notes.** Anything the deploy needs beyond `drush deploy` (string

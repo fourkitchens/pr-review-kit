@@ -31,6 +31,10 @@ The review is only as good as these rules. Good rules are:
 * **A bold name and one line.** `- **Cache metadata.** Entities loaded in preprocess add their cache tags.`
 * **Linked, not copied.** If the project already has a longer doc, link to it.
 
+The bot also reads the project's `AGENTS.md` and its workflow facts. If the
+project doesn't have them yet, run the `drupal-setup-agents` skill from
+[ai-cookbook](https://github.com/fourkitchens/ai-cookbook) first.
+
 Claude Code can write the first draft. Open it in your project's root and paste
 these prompts.
 
@@ -104,7 +108,7 @@ Merge the PR, and the label works on any PR.
 | No run in Actions | The label isn't exactly `claude review`, or Actions is off. |
 | The run fails right away | pr-review-kit doesn't share its workflows with the organization (pr-review-kit → Settings → Actions → General → Access). |
 | The review step fails | A missing or expired secret (step 3). |
-| The review says "A.C. not found" | The PR isn't linked to a Productive task (see [Usage](USAGE.md)), or there's no Productive token. |
+| The review says "A.C. not found" | The run's summary in Actions says why: no task link or task in the branch name (see [Usage](USAGE.md)), a task code that matches more than one task, or no Productive token. |
 
 ## Updates
 
