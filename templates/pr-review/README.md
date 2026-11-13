@@ -73,19 +73,15 @@ adjacent fixes are fine when the PR says so; unexplained drift is a finding.
 Done when every criterion has a verdict with evidence and every changed file is
 traced to a criterion or listed as drift.
 
-## 4. Post
+## 4. Report
 
 Leave line-specific findings as inline comments
 (`mcp__github_inline_comment__create_inline_comment`), one issue per comment,
-with a concrete fix. Then post **one** summary comment with a single
-`gh pr comment <N> --body "..."` call, with the summary written directly in the
-quotes. Don't use `$(...)`, heredocs, pipes or temp files: the workflow's tool
-permissions block them, and so does any line starting with `#`, so use bold
-labels instead of Markdown headings. The summary takes this shape:
+with a concrete fix. Then write the summary; the workflow posts it as one
+comment, updated on each run. Use bold labels instead of Markdown headings. The
+summary takes this shape:
 
 ```markdown
-**Claude review**
-
 **What this PR does**
 <2–5 sentences in plain language: the problem, the approach, the files that
 carry it. Written for a reviewer who has not opened the diff.>

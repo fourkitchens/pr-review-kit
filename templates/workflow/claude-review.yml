@@ -18,6 +18,8 @@ jobs:
       pull-requests: write
       issues: write
       actions: read
+      # Sets the "Claude review" status on the reviewed commit.
+      statuses: write
     uses: fourkitchens/pr-review-kit/.github/workflows/review.yml@v1
     # Only the secrets the review needs, whether set on the repo or the organization.
     secrets:
