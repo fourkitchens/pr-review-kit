@@ -18,6 +18,9 @@
 * **Status:** "Claude review" on the reviewed commit, red when there are
   Blockers and green when there are none. A new push clears it until the next
   review.
+* **Preview site:** when the project checks its preview site (SETUP step 5),
+  the summary lists what's new on each page the bot opened, and links the
+  screenshots and full report.
 * **Label:** `claude: blocking` or `claude: clean`, from the latest review.
   While a review runs, the label is removed and the status says "Review in
   progress".
@@ -60,12 +63,15 @@ project changes.
 4. **Checks the acceptance criteria** one by one: met, partial, not met, or
    needs a manual check on the preview site.
 5. **Flags scope drift**: changes the ticket didn't ask for.
-6. **Comments on the PR**: inline notes plus one summary, replaced on later
+6. **Checks the preview site** (optional): opens the pages the PR changes and
+   compares them with the base site: HTTP errors, PHP errors, console errors,
+   failed requests, accessibility issues (axe-core) and screenshots.
+7. **Comments on the PR**: inline notes plus one summary, replaced on later
    reviews. A later review covers the changes since the last one, unless the
    branch was force-pushed.
-7. **Sets the result**: the "Claude review" status and a `claude: blocking` or
+8. **Sets the result**: the "Claude review" status and a `claude: blocking` or
    `claude: clean` label.
-8. **Removes the `claude review` label**, so it can be added again.
+9. **Removes the `claude review` label**, so it can be added again.
 
 ## Cost and privacy
 

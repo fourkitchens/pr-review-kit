@@ -27,6 +27,7 @@ acceptance criteria and posts the findings on the PR.
 | `.github/workflows/review.yml` | Review workflow, shared by all projects. |
 | `templates/workflow/` | Project workflow. Goes in the project's `.github/workflows/`. |
 | `templates/pr-review/` | Review instructions and checklists. Go in the project's `docs/agents/pr-review/`. |
+| `scripts/preview-check/` | Preview site check, run by the review when a project turns it on. |
 | `composer.json` | Composer package. Installing it adds the templates to the project. |
 | `docs/` | Setup, usage and release guides. |
 

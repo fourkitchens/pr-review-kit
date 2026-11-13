@@ -7,7 +7,8 @@
 # It then posts one summary comment per PR (a new review replaces the last one at
 # the bottom of the PR), sets the "Claude review" status on the reviewed commit,
 # and labels the PR "claude: blocking" or "claude: clean". On a later run it
-# reviews the changes since the last review.
+# reviews the changes since the last review. With preview-url set, it also checks
+# the PR's preview site for errors, accessibility issues and broken layouts.
 # The label is removed when the run finishes so it can be re-added to review again.
 #
 # Setup steps: https://github.com/fourkitchens/pr-review-kit/blob/main/docs/SETUP.md
@@ -24,6 +25,20 @@ on:
         description: Productive organization ID.
         type: string
         default: '59815'
+      preview-url:
+        description: The PR's preview site, with {pr} for the PR number, like https://pr-{pr}-site.pantheonsite.io. Empty skips the preview check.
+        type: string
+        default: ''
+      base-url:
+        description: The site to compare the preview with, usually the one its content comes from (live). Empty reports everything the preview shows.
+        type: string
+        default: ''
+      preview-ready-status:
+        description: >-
+          The commit status or check that means the preview has the PR's latest
+          commit, like "ci/circleci: deploy_to_pantheon". Empty doesn't wait.
+        type: string
+        default: ''
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: false
@@ -35,8 +50,9 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
-    # A review takes 3–6 minutes; this stops a stuck one from running for hours.
-    timeout-minutes: 20
+    # A review takes 3–6 minutes, plus up to 15 waiting for the preview to
+    # deploy; this stops a stuck one from running for hours.
+    timeout-minutes: 40
     # One review per PR at a time: adding the label again cancels the running one.
     concurrency:
       group: claude-review-${{ github.repository }}-${{ github.event.pull_request.number }}
@@ -219,6 +235,85 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "**Review mode:** $MODE${PREV_SHA:+ (last review: ${PREV_SHA:0:7})}" >> "$GITHUB_STEP_SUMMARY"
 
+      # Waits for the preview to have the PR's latest commit, then installs the
+      # preview check: a Playwright script from this repo, at the same commit as
+      # this workflow, which the review runs on the pages the PR changes.
+      - name: Prepare preview check
+        id: preview
+        if: inputs.preview-url != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          READY: ${{ inputs.preview-ready-status }}
+        run: |
+          set -euo pipefail
+          skip() {
+            echo "state=skipped" >> "$GITHUB_OUTPUT"
+            echo "reason=$1" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Preview check::$1"
+            echo "**Preview check:** skipped. $1" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+          if [ -n "$READY" ]; then
+            # Up to 15 minutes, every 30 seconds. Statuses (CircleCI) list the
+            # newest first; checks (GitHub Actions) report their own state.
+            for attempt in $(seq 1 30); do
+              # shellcheck disable=SC2016 # $ENV is jq, not shell.
+              STATE=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/statuses" \
+                --jq '[.[] | select(.context == $ENV.READY)][0].state // ""')
+              if [ -z "$STATE" ]; then
+                # shellcheck disable=SC2016
+                STATE=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs" \
+                  --jq '[.check_runs[] | select(.name == $ENV.READY)][0]
+                    | if . == null then "" elif .status != "completed" then "pending" else .conclusion end')
+              fi
+              case "$STATE" in
+                success) break ;;
+                failure|error|cancelled|timed_out) skip "\"$READY\" is $STATE for this commit." ;;
+              esac
+              if [ "$attempt" = 30 ]; then
+                skip "\"$READY\" wasn't green after 15 minutes. Add the label again once it is."
+              fi
+              sleep 30
+            done
+          fi
+          # The commit of this workflow, so the script matches it.
+          KIT_SHA=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --jq '[.referenced_workflows[] | select(.path | startswith("fourkitchens/pr-review-kit/"))][0].sha // ""')
+          if [ -z "$KIT_SHA" ]; then
+            skip "couldn't find which pr-review-kit commit this run uses."
+          fi
+          echo "kit-sha=$KIT_SHA" >> "$GITHUB_OUTPUT"
+          echo "state=ready" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the preview check
+        if: steps.preview.outputs.state == 'ready'
+        uses: actions/checkout@v4
+        with:
+          repository: fourkitchens/pr-review-kit
+          ref: ${{ steps.preview.outputs.kit-sha }}
+          path: .claude-review/kit
+          sparse-checkout: scripts/preview-check
+
+      - name: Install the preview check
+        if: steps.preview.outputs.state == 'ready'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_URL: ${{ inputs.preview-url }}
+          BASE_URL: ${{ inputs.base-url }}
+        run: |
+          set -euo pipefail
+          # Outside the workspace, so the review doesn't read it as project code.
+          DIR=/tmp/claude-preview-check
+          mv "$GITHUB_WORKSPACE/.claude-review/kit/scripts/preview-check" "$DIR"
+          rm -rf "$GITHUB_WORKSPACE/.claude-review/kit"
+          npm ci --prefix "$DIR" --no-audit --no-fund
+          (cd "$DIR" && npx playwright install --with-deps --only-shell chromium)
+          jq -n --arg preview "${PREVIEW_URL//\{pr\}/$PR_NUMBER}" --arg base "$BASE_URL" \
+            --arg out "$GITHUB_WORKSPACE/.claude-review/preview" \
+            '{previewUrl: $preview, baseUrl: (if $base == "" then null else $base end), outDir: $out}' > "$DIR/config.json"
+          echo "**Preview check:** $(jq -r .previewUrl "$DIR/config.json")" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run Claude Code review
         id: review
         uses: anthropics/claude-code-action@v1
@@ -232,11 +327,14 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # To debug a run, uncomment to print Claude's full transcript in the Actions log.
           # show_full_output: true
+          # The preview check can take a few minutes on 9 pages.
+          settings: '{"env":{"BASH_DEFAULT_TIMEOUT_MS":"600000","BASH_MAX_TIMEOUT_MS":"600000"}}'
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
             PRODUCTIVE TASK FILE: .claude-review/ticket.md
             REVIEW MODE: ${{ steps.previous.outputs.mode }}
+            PREVIEW CHECK: ${{ steps.preview.outputs.state || 'off' }}
 
             Read docs/agents/pr-review/README.md and follow it to review this
             pull request, with these rules for reporting. They replace any
@@ -260,10 +358,37 @@ jobs:
             End the summary with a **Previous findings** section that marks each
             Blocker and Should fix from the previous review Fixed or Still open,
             and count the ones still open in `blockers` and `should_fix`.
+
+            When PREVIEW CHECK is ready, the PR's latest commit is deployed to its
+            preview site. Pick up to 8 paths (like /about) that show what this PR
+            changes: pages named in the task or the PR description, and pages that
+            use the changed templates, components, routes or config. Run
+            `node /tmp/claude-preview-check/preview-check.mjs <path> <path> ...`
+            once; it always adds "/". Read .claude-review/preview/report.md, and
+            look at the screenshots of the pages the PR changes. Before **Before
+            merge**, add a **Preview site** section with one line per page and
+            what's new on it. A new HTTP 500 or error message in a page is a
+            Blocker. A new console error, failed request or accessibility issue,
+            or a layout that looks broken in a screenshot, is a Should fix. Leave
+            out what the report lists as on the base too or as depending on the
+            domain.
+            When PREVIEW CHECK is skipped, add one line under **Before merge**:
+            the preview wasn't checked, because ${{ steps.preview.outputs.reason }}
+            When PREVIEW CHECK is off, don't mention the preview check.
           # To pin a model, add e.g. --model claude-sonnet-5-5 at the start.
           claude_args: |
-            --allowed-tools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*)"
+            --allowed-tools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(node /tmp/claude-preview-check/preview-check.mjs:*)"
             --json-schema '{"type":"object","properties":{"summary":{"type":"string"},"blockers":{"type":"integer","minimum":0},"should_fix":{"type":"integer","minimum":0}},"required":["summary","blockers","should_fix"]}'
+
+      - name: Upload preview screenshots
+        id: screenshots
+        if: always() && steps.preview.outputs.state == 'ready'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-check-pr${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: .claude-review/preview/
+          if-no-files-found: ignore
+          retention-days: 14
 
       # Posts the summary comment and deletes the previous one, so the latest
       # review sits at the bottom of the PR. Then sets the status and label from
@@ -277,6 +402,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           MODE: ${{ steps.previous.outputs.mode }}
           PREV_SHA: ${{ steps.previous.outputs.previous-sha }}
+          SCREENSHOTS_URL: ${{ steps.screenshots.outputs.artifact-url }}
         run: |
           set -euo pipefail
           if [ -z "$RESULT" ]; then
@@ -299,6 +425,10 @@ jobs:
             echo "**Claude review** · $SCOPE"
             echo
             jq -r '.summary' <<< "$RESULT"
+            if [ -n "$SCREENSHOTS_URL" ]; then
+              echo
+              echo "Preview screenshots and report: [download]($SCREENSHOTS_URL)"
+            fi
           } > "$BODY"
           NEW=$(gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F "body=@$BODY" \
             --jq '"\(.id) \(.html_url)"')
