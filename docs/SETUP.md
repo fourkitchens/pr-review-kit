@@ -3,16 +3,14 @@
 Adds the review bot to a Drupal project. Most of the time goes into writing the
 project's rules (step 2).
 
-You need admin access to the project's GitHub repo, read access to
-`fourkitchens/pr-review-kit`, and the [GitHub CLI](https://cli.github.com/)
-logged in.
+You need admin access to the project's GitHub repo and the
+[GitHub CLI](https://cli.github.com/) logged in.
 
 ## 1. Install
 
 From your project's root, run:
 
 ```bash
-composer config repositories.pr-review-kit vcs git@github.com:fourkitchens/pr-review-kit.git
 composer config --json --merge extra.drupal-scaffold.allowed-packages '["fourkitchens/pr-review-kit"]'
 composer require --dev fourkitchens/pr-review-kit:^1
 ```
@@ -122,9 +120,7 @@ attached to the run.
 | Symptom | Likely cause |
 | --- | --- |
 | `composer require` adds no files | The package isn't allowed (step 1). Add it, then run `composer drupal:scaffold`. |
-| `composer require` can't download the package | No read access to `fourkitchens/pr-review-kit`, or no SSH key for GitHub. |
 | No run in Actions | The label isn't exactly `claude review`, or Actions is off. |
-| The run fails right away | pr-review-kit doesn't share its workflows with the organization (pr-review-kit → Settings → Actions → General → Access). |
 | The review step fails | A missing or expired secret (step 3). |
 | The review says "A.C. not found" | The run's summary in Actions says why: no task link or task in the branch name (see [Usage](USAGE.md)), a task code that matches more than one task, or no Productive token. |
 | The summary says the preview wasn't checked | It says why: usually the deploy wasn't green after 15 minutes. Add the label again once it is. |
