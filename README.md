@@ -45,3 +45,7 @@ pin a release (`@v1.0.0`) in the project's `.github/workflows/claude-review.yml`
 ## Contributing
 
 Open an issue or a pull request in this repo.
+
+## License
+
+[MIT](LICENSE).

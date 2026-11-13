@@ -53,7 +53,7 @@ jobs:
       #   1. A task link in the PR description.
       #   2. The start of a branch segment: the task ID from the task's URL
       #      (feature/21323404-login-fix) or the task code shown in Productive, in
-      #      any case (feature/BCJX-10103-login-fix). Same convention as
+      #      any case (feature/PROJ-123-login-fix). Same convention as
       #      fourkitchens/productive-sync.
       # Skipped with a notice when there is no token or no task; the review then
       # falls back to the PR description.
