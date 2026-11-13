@@ -101,6 +101,22 @@ a `claude: blocking` or `claude: clean` label, and the `claude review` label is
 removed.
 Merge the PR, and the label works on any PR.
 
+## 5. Check the preview site (optional)
+
+If each PR gets a preview site, like a Pantheon multidev, the bot can open the
+pages the PR changes and look for errors, accessibility issues and broken
+layouts. In `.github/workflows/claude-review.yml`, uncomment the `with:` block
+and fill it in:
+
+* `preview-url`: the PR's preview site, with `{pr}` for the PR number.
+* `base-url`: the site to compare with, usually the one the preview's content
+  comes from (live). The bot reports only what the base site doesn't have.
+* `preview-ready-status`: the commit status or check that turns green when the
+  preview has the PR's latest commit. The bot waits for it up to 15 minutes.
+
+Each review then takes 2–3 minutes more. Screenshots and the full report are
+attached to the run.
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
@@ -111,6 +127,7 @@ Merge the PR, and the label works on any PR.
 | The run fails right away | pr-review-kit doesn't share its workflows with the organization (pr-review-kit → Settings → Actions → General → Access). |
 | The review step fails | A missing or expired secret (step 3). |
 | The review says "A.C. not found" | The run's summary in Actions says why: no task link or task in the branch name (see [Usage](USAGE.md)), a task code that matches more than one task, or no Productive token. |
+| The summary says the preview wasn't checked | It says why: usually the deploy wasn't green after 15 minutes. Add the label again once it is. |
 | No "Claude review" status on the PR | The project's workflow doesn't grant `statuses: write`. Add it as in [the template](../templates/workflow/claude-review.yml). |
 
 ## Updates
