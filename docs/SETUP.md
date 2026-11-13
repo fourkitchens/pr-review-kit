@@ -94,7 +94,9 @@ gh label create "claude review" --color 6f42c1 --description "Runs a Claude revi
 ```
 
 Commit, push and open a PR, then add the `claude review` label. After about
-3–6 minutes the PR gets a "Claude review" comment and the label is removed.
+3–6 minutes the PR gets a "Claude review" comment, a "Claude review" status and
+a `claude: blocking` or `claude: clean` label, and the `claude review` label is
+removed.
 Merge the PR, and the label works on any PR.
 
 ## Troubleshooting
@@ -105,6 +107,7 @@ Merge the PR, and the label works on any PR.
 | No run in Actions | The label isn't exactly `claude review`, or Actions is off. |
 | The review step fails | A missing or expired secret (step 3). |
 | The review says "A.C. not found" | The run's summary in Actions says why: no task link or task in the branch name (see [Usage](USAGE.md)), a task code that matches more than one task, or no Productive token. |
+| No "Claude review" status on the PR | The project's workflow doesn't grant `statuses: write`. Add it as in [the template](../templates/workflow/claude-review.yml). |
 
 ## Updates
 
