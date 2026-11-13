@@ -78,7 +78,7 @@ traced to a criterion or listed as drift.
 Leave line-specific findings as inline comments
 (`mcp__github_inline_comment__create_inline_comment`), one issue per comment,
 with a concrete fix. Then write the summary; the workflow posts it as one
-comment, updated on each run. Use bold labels instead of Markdown headings. The
+comment that replaces the last one. Use bold labels instead of Markdown headings. The
 summary takes this shape:
 
 ```markdown

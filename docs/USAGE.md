@@ -7,16 +7,20 @@
 3. After a few minutes, read the summary comment and the inline comments,
    starting with "Blocker".
 4. After pushing fixes, add the label again. The bot reviews only what changed,
-   says which earlier findings are fixed, and updates the same summary comment.
+   says which earlier findings are fixed, and posts a new summary that replaces
+   the last one.
 
 ## Reading the result
 
-* **Summary comment:** one per PR, updated on each review. Its first line says
-  which commit was reviewed.
+* **Summary comment:** one per PR. Each review posts a new one at the bottom of
+  the PR and deletes the last one. Its first line says which commit was
+  reviewed.
 * **Status:** "Claude review" on the reviewed commit, red when there are
   Blockers and green when there are none. A new push clears it until the next
   review.
 * **Label:** `claude: blocking` or `claude: clean`, from the latest review.
+  While a review runs, the label is removed and the status says "Review in
+  progress".
 
 The bot supports the reviewer; a person still reviews and approves the PR.
 
@@ -56,7 +60,7 @@ project changes.
 4. **Checks the acceptance criteria** one by one: met, partial, not met, or
    needs a manual check on the preview site.
 5. **Flags scope drift**: changes the ticket didn't ask for.
-6. **Comments on the PR**: inline notes plus one summary, updated on later
+6. **Comments on the PR**: inline notes plus one summary, replaced on later
    reviews. A later review covers the changes since the last one, unless the
    branch was force-pushed.
 7. **Sets the result**: the "Claude review" status and a `claude: blocking` or
