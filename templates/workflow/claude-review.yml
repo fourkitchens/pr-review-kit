@@ -21,6 +21,11 @@ jobs:
       # Sets the "Claude review" status on the reviewed commit.
       statuses: write
     uses: fourkitchens/pr-review-kit/.github/workflows/review.yml@v1
+    # Optional: check the PR's preview site (docs/SETUP.md, step 5).
+    # with:
+    #   preview-url: https://pr-{pr}-<site>.pantheonsite.io
+    #   base-url: https://live-<site>.pantheonsite.io
+    #   preview-ready-status: "ci/circleci: deploy_to_pantheon"
     # Only the secrets the review needs, whether set on the repo or the organization.
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
