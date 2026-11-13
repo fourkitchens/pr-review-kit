@@ -2,7 +2,7 @@
     "name": "fourkitchens/pr-review-kit",
     "description": "Claude Code review bot for pull requests on Four Kitchens Drupal projects.",
     "type": "library",
-    "license": "proprietary",
+    "license": "MIT",
     "require": {
         "drupal/core-composer-scaffold": "^10 || ^11"
     },

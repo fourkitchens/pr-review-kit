@@ -18,7 +18,7 @@ Without one, it reads the branch name. Start any part of it with:
 
 * the task ID, the long number at the end of the task's URL:
   `feature/21323404-login-fix`
-* or the task code shown in Productive, in any case: `feature/BCJX-10103-login-fix`
+* or the task code shown in Productive, in any case: `feature/PROJ-123-login-fix`
 
 This is the same branch name
 [productive-sync](https://github.com/fourkitchens/productive-sync) uses, so one
